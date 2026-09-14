@@ -22,6 +22,8 @@ function friendlyError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes("habito-nao-encontrado")) return "Hábito não encontrado.";
   if (m.includes("ja-concluido")) return "Você já concluiu este hábito hoje.";
+  if (m.includes("habito-com-historico"))
+    return "Este hábito tem histórico: arquive em vez de apagar.";
   if (m.includes("conclusao-nao-encontrada")) return "Conclusão não encontrada.";
   if (m.includes("conclusao-antiga"))
     return "Só é possível desfazer a conclusão de hoje.";
@@ -203,6 +205,13 @@ onAuthChange(cb: (user: AuthUserInfo | null) => void) {
       .update({ archived: true })
       .eq("id", id);
     if (error) throw error;
+  }
+
+  async deleteHabit(id: string): Promise<void> {
+    const { error } = await this.supabase.rpc("delete_habit", {
+      p_habit_id: id,
+    });
+    if (error) throw new Error(friendlyError(error.message));
   }
 
   async completeHabit(habitId: string): Promise<void> {

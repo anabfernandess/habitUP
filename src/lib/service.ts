@@ -42,6 +42,7 @@ export interface AppService {
   createHabit(input: HabitInput): Promise<Habit>;
   updateHabit(id: string, patch: HabitPatch): Promise<Habit>;
   archiveHabit(id: string): Promise<void>;
+  deleteHabit(id: string): Promise<void>;
   completeHabit(habitId: string): Promise<void>;
   undoCompletion(completionId: string): Promise<void>;
   updateProfile(patch: {

@@ -1,5 +1,6 @@
 import type { Bundle, Completion, Habit } from "./types";
 import { currentStreak, lastNDays, todayKey } from "./date";
+import { CANONICAL_GAMIFICATION_TZ } from "./gamification";
 
 export interface TodayHabitItem {
   habit: Habit;
@@ -16,11 +17,10 @@ export interface TodaySummary {
   generalStreak: number;
 }
 
-export function todaySummary(
-  bundle: Bundle,
-  timezone?: string,
-): TodaySummary {
-  const today = todayKey(timezone);
+export function todaySummary(bundle: Bundle): TodaySummary {
+  // "Hoje" é o dia canônico da gamificação (America/Sao_Paulo), o mesmo
+  // usado pelo servidor para gravar completed_date. O fuso do perfil é UI.
+  const today = todayKey(CANONICAL_GAMIFICATION_TZ);
   const active = bundle.habits.filter((h) => !h.archived);
 
   const doneByHabit = new Map<string, Completion>();
@@ -59,10 +59,9 @@ export interface HabitHistoryEntry {
 /** Histórico dos últimos `days` dias, para o mapa de atividade. */
 export function activityHistory(
   bundle: Bundle,
-  timezone: string | undefined,
   days = 90,
 ): HabitHistoryEntry[] {
-  const today = todayKey(timezone);
+  const today = todayKey(CANONICAL_GAMIFICATION_TZ);
   const counts = new Map<string, number>();
   for (const c of bundle.completions) {
     counts.set(c.completed_date, (counts.get(c.completed_date) ?? 0) + 1);

@@ -14,6 +14,14 @@ import type { UserStats } from "./types";
 export const XP_PER_COMPLETION = 20;
 export const XP_PER_LEVEL = 100;
 
+/**
+ * Fuso canônico das REGRAS DE GAMIFICAÇÃO (fonte da verdade no servidor).
+ * A data de uma conclusão (completed_date) é sempre derivada deste fuso no
+ * Postgres (public.gamification_tz). profiles.timezone pode ser usado só para
+ * a UI e NUNCA pode alterar a integridade da gamificação.
+ */
+export const CANONICAL_GAMIFICATION_TZ = "America/Sao_Paulo";
+
 export function totalXp(totalCompletions: number): number {
   return totalCompletions * XP_PER_COMPLETION;
 }

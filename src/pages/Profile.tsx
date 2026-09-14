@@ -9,6 +9,7 @@ import {
   rewardCurrentValue,
   XP_PER_COMPLETION,
   XP_PER_LEVEL,
+  CANONICAL_GAMIFICATION_TZ,
 } from "../lib/gamification";
 import { Screen, LoadingScreen, ErrorScreen } from "../components/States";
 import { LogoutIcon, TrophyIcon } from "../components/icons";
@@ -27,14 +28,14 @@ export function Profile() {
   if (status === "error") return <ErrorScreen onRetry={reload} />;
 
   const { profile, stats } = bundle;
-  const history = activityHistory(bundle, profile.timezone, 84);
+  const history = activityHistory(bundle, 84);
 
   const weeks: string[][] = [];
   for (let i = 0; i < history.length; i += 7) {
     weeks.push(history.slice(i, i + 7).map((h) => h.date));
   }
 
-  const today = todayKey(profile.timezone);
+  const today = todayKey(CANONICAL_GAMIFICATION_TZ);
   const cellLevel = (count: number) => Math.min(4, count);
 
   const onSaveName = async () => {

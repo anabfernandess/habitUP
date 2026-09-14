@@ -279,4 +279,47 @@ describe("DemoService (modo demonstrativo)", () => {
     const b = await svc2.loadBundle();
     expect(b.habits[0].name).toBe("Persistente");
   });
+
+  it("trocar o fuso do perfil não fabrica dias de conclusão (A1)", async () => {
+    const svc = new DemoService();
+    await svc.updateProfile({ timezone: "Etc/GMT+12" });
+    await svc.createHabit({ name: "A", description: "", category: "outros", icon: "check", color: "#8b5cf6" });
+    const b = await svc.loadBundle();
+    // completar em 09-09 sob fuso do servidor
+    await svc.completeHabit(b.habits[0].id);
+    // mudar para fuso onde 09-09T13:00Z = 09-10 não deveria fabricar novo dia
+    await svc.updateProfile({ timezone: "Pacific/Kiritimati" });
+    await expect(svc.completeHabit(b.habits[0].id)).rejects.toThrow("already-completed");
+    // mudança de fuso não removeu a conclusão existente
+    const after = await svc.loadBundle();
+    expect(after.completions).toHaveLength(1);
+  });
+
+  it("deleteHabit: sem histórico apaga, com histórico rejeita e preserva rewards", async () => {
+    const svc = new DemoService();
+    await svc.updateProfile({ timezone: "UTC" });
+    await svc.createHabit({ name: "Lixo", description: "", category: "outros", icon: "check", color: "#8b5cf6" });
+    await svc.createHabit({ name: "Arquivo", description: "", category: "outros", icon: "check", color: "#8b5cf6" });
+    const b = await svc.loadBundle();
+    const empty = b.habits.find((h) => h.name === "Lixo")!;
+    const withComp = b.habits.find((h) => h.name === "Arquivo")!;
+
+    // sem histórico => apaga
+    await svc.deleteHabit(empty.id);
+    const afterEmpty = await svc.loadBundle();
+    expect(afterEmpty.habits.find((h) => h.id === empty.id)).toBeUndefined();
+
+    // com histórico => rejeita
+    await svc.completeHabit(withComp.id);
+    await expect(svc.deleteHabit(withComp.id)).rejects.toThrow("habito-com-historico");
+
+    // arquivar preserva rewards e XP (recompensa já desbloqueada com 1 conclusão)
+    await svc.archiveHabit(withComp.id);
+    const afterArchive = await svc.loadBundle();
+    expect(afterArchive.habits.find((h) => h.id === withComp.id)?.archived).toBe(true);
+    expect(afterArchive.completions).toHaveLength(1);
+    expect(afterArchive.stats.total_completions).toBe(1);
+    expect(afterArchive.stats.total_xp).toBe(20);
+    expect(afterArchive.ownedRewards).toContain("shirt_first_step");
+  });
 });

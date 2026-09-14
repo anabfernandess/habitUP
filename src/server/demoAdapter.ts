@@ -1,5 +1,6 @@
 import { nanoid } from "../lib/nanoid";
 import {
+  CANONICAL_GAMIFICATION_TZ,
   levelFromXp,
   totalXp,
   unlockedRewardIds,
@@ -220,6 +221,21 @@ export class DemoService implements AppService {
     persist(db);
   }
 
+  async deleteHabit(id: string): Promise<void> {
+    const db = readDb();
+    const habit = db.habits.find((h) => h.id === id);
+    if (!habit) throw new Error("habito-nao-encontrado");
+
+    // Espelha a RPC delete_habit: histório (completions) nunca pode ser
+    // destruído. Hábito com histórico deve ser arquivado.
+    const hasHistory = db.completions.some((c) => c.habit_id === id);
+    if (hasHistory) throw new Error("habito-com-historico");
+
+    db.habits = db.habits.filter((h) => h.id !== id);
+    sync(db);
+    persist(db);
+  }
+
   async completeHabit(habitId: string): Promise<void> {
     const db = readDb();
     const habit = db.habits.find(
@@ -227,7 +243,9 @@ export class DemoService implements AppService {
     );
     if (!habit) throw new Error("not-found");
 
-    const day = todayKey(db.profile.timezone);
+    // "Hoje" da gamificação é o dia canônico (America/Sao_Paulo), igual ao
+    // servidor. Trocar profiles.timezone não fabrica dias de conclusão.
+    const day = todayKey(CANONICAL_GAMIFICATION_TZ);
     const dup = db.completions.some(
       (c) => c.habit_id === habitId && c.completed_date === day,
     );
@@ -251,8 +269,9 @@ export class DemoService implements AppService {
     );
     if (idx < 0) throw new Error("conclusao-nao-encontrada");
 
-    // Só conclusões do dia atual (no fuso do usuário) podem ser desfeitas.
-    const day = todayKey(db.profile.timezone);
+    // Só conclusões do dia atual (no fuso canônico da gamificação) podem ser
+    // desfeitas.
+    const day = todayKey(CANONICAL_GAMIFICATION_TZ);
     if (db.completions[idx].completed_date !== day) {
       throw new Error("conclusao-antiga");
     }

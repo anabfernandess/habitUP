@@ -183,4 +183,56 @@ describe.skipIf(!enabled)("Integração Supabase (Postgres real — opt-in)", ()
     const rewards = await c.from("user_rewards").select("reward_id").eq("user_id", uid);
     expect(rewards.data!.map((x: { reward_id: string }) => x.reward_id)).toContain("shirt_first_step");
   });
+
+  it("A1: trocar profiles.timezone não permite dupla conclusão (canônico SP)", async () => {
+    const c = client();
+    const uid = await signUpUser(c, "us7");
+    const habitId = await createHabit(c, uid, "TZ");
+
+    // extremo oeste: Etc/GMT+12 (UTC-12)
+    await c.from("profiles").update({ timezone: "Etc/GMT+12" }).eq("id", uid);
+    let r = await c.rpc("complete_habit", { p_habit_id: habitId });
+    expect(r.error).toBeNull();
+
+    // extremo leste: Pacific/Kiritimati (UTC+14) — qualquer fuso que mude
+    // o "dia" local nunca pode fabricar uma nova conclusão para o mesmo hábito
+    await c.from("profiles").update({ timezone: "Pacific/Kiritimati" }).eq("id", uid);
+    r = await c.rpc("complete_habit", { p_habit_id: habitId });
+    expect(r.error).toBeTruthy();
+    expect(r.error!.message).toContain("ja-concluido");
+
+    const { data: comps } = await c.from("completions").select("completed_date").eq("habit_id", habitId);
+    expect(comps).toHaveLength(1);
+  });
+
+  it("A2: delete_habit respeita histórico e DELETE direto é bloqueado", async () => {
+    const c = client();
+    const uid = await signUpUser(c, "us8");
+    const emptyId = await createHabit(c, uid, "SemHist");
+    const histId = await createHabit(c, uid, "Hist");
+    await c.rpc("complete_habit", { p_habit_id: histId });
+
+    // sem histórico => apaga via RPC
+    let r = await c.rpc("delete_habit", { p_habit_id: emptyId });
+    expect(r.error).toBeNull();
+    const gone = await c.from("habits").select("id").eq("id", emptyId);
+    expect(gone.data).toHaveLength(0);
+
+    // com histórico => rejeita e nada some
+    r = await c.rpc("delete_habit", { p_habit_id: histId });
+    expect(r.error).toBeTruthy();
+    expect(r.error!.message).toContain("habito-com-historico");
+    const comps = await c.from("completions").select("id").eq("habit_id", histId);
+    expect(comps.data).toHaveLength(1);
+
+    // arquivar preserva stats e recompensa
+    await c.from("habits").update({ archived: true }).eq("id", histId);
+    const stats = await c.from("user_stats").select("total_completions,total_xp").eq("user_id", uid).single();
+    expect(stats.data!.total_completions).toBe(1);
+    expect(stats.data!.total_xp).toBe(20);
+
+    // DELETE direto continua bloqueado (grants revogados + FK RESTRICT)
+    const direct = await c.from("habits").delete().eq("id", histId);
+    expect(direct.error).toBeTruthy();
+  });
 });

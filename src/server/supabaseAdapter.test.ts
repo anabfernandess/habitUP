@@ -197,6 +197,7 @@ describe("SupabaseService (mock do client)", () => {
       ["conclusao-antiga", "Só é possível desfazer a conclusão de hoje."],
       ["nao-autorizado", "Operação não autorizada para este usuário."],
       ["item-bloqueado", "Essa peça ainda não foi desbloqueada."],
+      ["habito-com-historico", "Este hábito tem histórico: arquive em vez de apagar."],
     ];
     for (const [code, msg] of cases) {
       const { client } = createFakeClient({ results: emptyResults(), rpcError: code });

@@ -42,7 +42,7 @@ export function Today() {
   if (status === "error") return <ErrorScreen onRetry={reload} />;
 
   const { profile, stats } = bundle;
-  const summary = todaySummary(bundle, profile.timezone);
+  const summary = todaySummary(bundle);
   const level = statsLevelProgress(stats);
   const next = nextReward(stats);
   const greeting = profile.name || "Viajante";
